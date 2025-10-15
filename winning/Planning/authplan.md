@@ -93,8 +93,9 @@
 
 ### To-dos
 
-- [ ] Install Supabase, configure env, add server/client helpers
+- [ ] Install Supabase, configure env, add server/client helpers (Completed: Oct 14, 8:00am)
 - [ ] Create circles, circle_members, circle_invites tables with RLS and RPC
+(completed: Oct 15, 5:14am)
 - [ ] Build email magic link + Google OAuth login page
 - [ ] List user circles, create circle form, invite entry
 - [ ] Create API route to create circle and owner membership
