@@ -97,6 +97,7 @@
 - [ ] Create circles, circle_members, circle_invites tables with RLS and RPC
 (completed: Oct 15, 5:14am)
 - [ ] Build email magic link + Google OAuth login page
+(Completed: Oct 15: 8:00am)
 - [ ] List user circles, create circle form, invite entry
 - [ ] Create API route to create circle and owner membership
 - [ ] Create invite generation endpoint and UI with expiry and role
