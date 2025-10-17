@@ -10,6 +10,8 @@ export default function CirclePage() {
   const supabase = createBrowserSupabaseClient();
   const [circle, setCircle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [creatingInvite, setCreatingInvite] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -28,6 +30,41 @@ export default function CirclePage() {
     })();
   }, [circleId, supabase]);
 
+  async function createInvite() {
+    setCreatingInvite(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    const { data, error } = await supabase
+      .from('circle_invites')
+      .insert({
+        circle_id: circleId,
+        inviter_id: user.id,
+        role: 'member',
+        token,
+        expires_at: expiresAt.toISOString()
+      })
+      .select('token')
+      .single();
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setInviteToken(data.token);
+    setCreatingInvite(false);
+  }
+
+  function copyInviteLink() {
+    const link = `${window.location.origin}/invite?token=${inviteToken}`;
+    navigator.clipboard.writeText(link);
+    alert('Invite link copied to clipboard!');
+  }
+
   if (loading) return <p>Loading circle...</p>;
   if (!circle) return <p>Circle not found</p>;
 
@@ -36,6 +73,25 @@ export default function CirclePage() {
       <h1>{circle.name}</h1>
       <p>Circle ID: {circle.id}</p>
       <p>Created: {new Date(circle.created_at).toLocaleDateString()}</p>
+      
+      <div style={{ marginTop: '20px' }}>
+        <h2>Invite Members</h2>
+        {!inviteToken ? (
+          <button onClick={createInvite} disabled={creatingInvite}>
+            {creatingInvite ? 'Creating...' : 'Create Invite Link'}
+          </button>
+        ) : (
+          <div>
+            <p>Invite link created! Share this link:</p>
+            <input 
+              value={`${window.location.origin}/invite?token=${inviteToken}`} 
+              readOnly 
+              style={{ width: '400px', marginRight: '10px' }}
+            />
+            <button onClick={copyInviteLink}>Copy Link</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
