@@ -3,10 +3,12 @@
 import { useParams } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function CirclePage() {
   const params = useParams();
   const circleId = params.circleId as string;
+  const router = useRouter();
   const supabase = createBrowserSupabaseClient();
   const [circle, setCircle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,27 @@ export default function CirclePage() {
 
   useEffect(() => {
     (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // Check if user is a member of this circle
+      const { data: membership } = await supabase
+        .from('circle_members')
+        .select('role')
+        .eq('circle_id', circleId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!membership) {
+        // Not a member - redirect away
+        router.push('/circles');
+        return;
+      }
+
+      // User is a member - load circle data
       const { data, error } = await supabase
         .from('circles')
         .select('id, name, created_at')
@@ -28,7 +51,7 @@ export default function CirclePage() {
       setCircle(data);
       setLoading(false);
     })();
-  }, [circleId, supabase]);
+  }, [circleId, supabase, router]);
 
   async function createInvite() {
     setCreatingInvite(true);
@@ -57,6 +80,26 @@ export default function CirclePage() {
 
     setInviteToken(data.token);
     setCreatingInvite(false);
+  }
+
+  async function leaveCircle() {
+    if (!confirm('Are you sure you want to leave this circle?')) return;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('circle_members')
+      .delete()
+      .eq('circle_id', circleId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    window.location.href = '/circles';
   }
 
   function copyInviteLink() {
@@ -91,6 +134,15 @@ export default function CirclePage() {
             <button onClick={copyInviteLink}>Copy Link</button>
           </div>
         )}
+      </div>
+
+      <div style={{ marginTop: '20px' }}>
+        <button 
+          onClick={leaveCircle}
+          style={{ backgroundColor: 'red', color: 'white', padding: '8px 16px' }}
+        >
+          Leave Circle
+        </button>
       </div>
     </div>
   );

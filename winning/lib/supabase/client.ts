@@ -11,3 +11,4 @@ export function createBrowserSupabaseClient(): SupabaseClient {
   });
   return client;
 }
+

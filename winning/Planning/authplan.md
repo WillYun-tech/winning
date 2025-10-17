@@ -103,6 +103,10 @@
 - [ ] Create API route to create circle and owner membership
 (Completed: Oct 17, 10:27am)
 - [ ] Create invite generation endpoint and UI with expiry and role
+(completed Oct 17, 10:51am)
 - [ ] Add /invite page and accept endpoint to join circle
+(completed Oct 17, 10:51am)
 - [ ] Add membership guard to /c/[circleId] routes
+(completed Oct 17, 11:00 am)
 - [ ] Add topbar circle switcher for multi-circle users
+(Completed Oct 17, 10:51am)

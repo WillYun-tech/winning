@@ -90,7 +90,8 @@
 
 ### To-dos
 
-- [ ] Implement auth and Circle creation/join flows
+- [ ] Implement auth and Circle creation/join flows 
+(Completed Oct 17, 11:00am)
 - [ ] Set up database schema for goals, habits, routines, tasks, wins, comments
 - [ ] Build Circle dashboard with member switcher and combined toggle
 - [ ] Create Long-term Goal page with milestones and strategy notes

@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SignOutButton } from '@/components/SignOutButton';
+import CircleSwitcher from '@/components/CircleSwitcher';
 
 function TopBar() {
   return (
-    <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px' }}>
       <div>Winning</div>
-      <SignOutButton />
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+        <CircleSwitcher />
+        <SignOutButton />
+      </div>
     </div>
   );
 }
