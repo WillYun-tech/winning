@@ -99,7 +99,9 @@
 - [ ] Build email magic link + Google OAuth login page
 (Completed: Oct 15: 8:00am)
 - [ ] List user circles, create circle form, invite entry
+(Completed: Oct 17, 10:27am)
 - [ ] Create API route to create circle and owner membership
+(Completed: Oct 17, 10:27am)
 - [ ] Create invite generation endpoint and UI with expiry and role
 - [ ] Add /invite page and accept endpoint to join circle
 - [ ] Add membership guard to /c/[circleId] routes
