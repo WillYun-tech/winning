@@ -7,7 +7,17 @@ import CircleSwitcher from '@/components/CircleSwitcher';
 function TopBar() {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px' }}>
-      <div>Winning</div>
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+        <a href="/" style={{ textDecoration: 'none', color: '#000', fontWeight: 'bold', fontSize: '1.2rem' }}>
+          Winning
+        </a>
+        <a href="/planner" style={{ textDecoration: 'none', color: '#666', padding: '8px 12px', borderRadius: '4px' }}>
+          My Planner
+        </a>
+        <a href="/circles" style={{ textDecoration: 'none', color: '#666', padding: '8px 12px', borderRadius: '4px' }}>
+          Circles
+        </a>
+      </div>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
         <CircleSwitcher />
         <SignOutButton />
