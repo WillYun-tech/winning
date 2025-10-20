@@ -10,7 +10,7 @@ export default function PlannerLayout({ children }: { children: React.ReactNode 
     { name: 'Goals', href: '/planner/goals', icon: '🎯' },
     { name: 'Habits', href: '/planner/habits', icon: '📈' },
     { name: 'Routines', href: '/planner/routines', icon: '🌅' },
-    { name: 'Calendar', href: '/planner/month', icon: '📅' },
+    { name: 'Month', href: '/planner/month', icon: '📅' },
     { name: 'Weekly', href: '/planner/week', icon: '📋' },
     { name: 'Daily', href: '/planner/day', icon: '📝' },
     { name: 'Wins', href: '/planner/wins', icon: '🏆' },

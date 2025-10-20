@@ -271,9 +271,12 @@ app/
 
 - [x] Create Personal Goals Page with 5 goal slots and milestone management
 - [x] Create Personal Habit Tracker with 10 habits × month grid
-- [ ] Build Personal Routines Page for morning/evening routines
-- [ ] Implement Personal Month Calendar with events and tasks
-- [ ] Create Personal Week Review and Planning page
+- [x] Build Personal Routines Page for morning/evening routines
+(completed Oct 20, 5:15am)
+- [x] Implement Personal Month Calendar with events and tasks
+(completed Oct 20, 6:20am)
+- [x] Create Personal Week Review and Planning page
+(Completed Oct 20, 6:56am) 
 - [ ] Build Personal Daily Planning page with priorities and to-dos
 - [ ] Implement Personal Wins Feed
 - [ ] Create Circle Dashboard with tab navigation
@@ -286,3 +289,11 @@ app/
 - [ ] Add API routes for all CRUD operations
 - [ ] Implement task-to-goal/milestone linking
 - [ ] Add automatic win creation from task completion
+
+
+
+# Things that need to get fixed: 
+Don't like how you can't click on the months day to see all the events. 
+
+Don't want our weekly tasks to show up as events in our month page or on our daily page as a todo list. Should be seperate. Want schedule to have blocks of 30mins from 5am to 10am and be verticle. 
+
