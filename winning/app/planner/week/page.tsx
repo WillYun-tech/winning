@@ -23,7 +23,7 @@ type Task = {
   circle_id: string | null;
   title: string;
   description: string | null;
-  type: string | null; // 'task' | 'event'
+  type: string | null; // 'task' | 'event' | 'week'
   date: string | null; // yyyy-mm-dd
   time: string | null;
   priority: 'low' | 'medium' | 'high' | null;
@@ -155,6 +155,7 @@ export default function PersonalWeekPage() {
       .select('*')
       .eq('user_id', user.id)
       .is('circle_id', null)
+      .eq('type', 'week')
       .gte('date', start)
       .lte('date', end)
       .order('date', { ascending: true });
@@ -195,7 +196,7 @@ export default function PersonalWeekPage() {
       circle_id: null,
       title: taskForm.title,
       description: taskForm.notes || null,
-      type: 'task',
+      type: 'week',
       date: taskForm.date,
       time: null,
       priority: taskForm.priority,
@@ -229,20 +230,27 @@ export default function PersonalWeekPage() {
       alert('Error updating status: ' + (error.message || 'Unknown error'));
       return;
     }
-    // Simple auto-win creation when marking done
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Create win when marking done, delete when moving away from done
     if (status === 'done') {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('wins').insert({
-          user_id: user.id,
-          circle_id: null,
-          title: t.title,
-          description: t.description || null,
-          task_id: t.id,
-          goal_id: t.linked_goal_id
-        });
-      }
+      await supabase.from('wins').insert({
+        user_id: user.id,
+        circle_id: null,
+        title: t.title,
+        description: `Completed weekly task${t.description ? ': ' + t.description : ''}`,
+        task_id: t.id,
+        goal_id: t.linked_goal_id
+      });
+    } else if (t.status === 'done') {
+      // Task was previously done, now moving away from done - delete the win
+      await supabase.from('wins').delete()
+        .eq('user_id', user.id)
+        .eq('task_id', t.id);
     }
+    
     loadTasksForWeek(currentWeekISO);
   }
 

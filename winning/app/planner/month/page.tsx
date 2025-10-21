@@ -31,6 +31,10 @@ export default function PersonalMonthPage() {
   const [reviewText, setReviewText] = useState('');
   const [savingGoals, setSavingGoals] = useState(false);
   const [savingReview, setSavingReview] = useState(false);
+  
+  // Monthly goals as tasks
+  const [monthlyGoals, setMonthlyGoals] = useState<Array<{id: string, text: string, completed: boolean}>>([]);
+  const [newGoalText, setNewGoalText] = useState('');
 
   // Temporary workaround toggle: set to false while debugging root cause
   const APPLY_MONTH_OFFSET = false;
@@ -91,6 +95,7 @@ export default function PersonalMonthPage() {
       .select('id, user_id, circle_id, title, date, created_at')
       .eq('user_id', user.id)
       .is('circle_id', null)
+      .eq('type', 'event')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: true });
@@ -127,7 +132,25 @@ export default function PersonalMonthPage() {
     if (err1) {
       console.error('Error loading current month notes:', err1);
     }
-    setGoalsText((currentRows && currentRows[0]?.goals) || '');
+    const goalsData = (currentRows && currentRows[0]?.goals) || '';
+    setGoalsText(goalsData);
+    
+    // Parse goals text into task format
+    const goalLines = goalsData.split('\n').filter((line: string) => line.trim());
+    
+    const parsedGoals = goalLines.map((line: string, index: number) => {
+      const isCompleted = line.startsWith('✅') || line.startsWith('[x]') || line.startsWith('[X]');
+      // Remove checkboxes and clean the text properly
+      const text = line.replace(/^[✅☐\[\]xX\s]+/, '').trim();
+      // Create stable ID based on text content
+      const stableId = `goal-${text.replace(/\s+/g, '-').toLowerCase()}-${index}`;
+      return {
+        id: stableId,
+        text: text || line.trim(),
+        completed: isCompleted
+      };
+    });
+    setMonthlyGoals(parsedGoals);
 
     // Load previous month review
     const prev = prevMonth(effectiveYearMonth);
@@ -144,6 +167,10 @@ export default function PersonalMonthPage() {
   }
 
   async function saveGoals() {
+    await saveGoalsWithGoals(monthlyGoals);
+  }
+
+  async function saveGoalsWithGoals(goals: Array<{id: string, text: string, completed: boolean}>) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setSavingGoals(true);
@@ -156,6 +183,11 @@ export default function PersonalMonthPage() {
       .eq('month_year', effectiveYearMonth);
     if (err) console.error('Error reading existing month review:', err);
     const keepReview = existing && existing[0]?.review ? existing[0].review : null;
+
+    // Convert monthly goals back to text format
+    const goalsText = goals.map(goal => 
+      goal.completed ? `✅ ${goal.text}` : `☐ ${goal.text}`
+    ).join('\n');
 
     const { error } = await supabase
       .from('month_notes')
@@ -171,6 +203,87 @@ export default function PersonalMonthPage() {
       alert('Error saving goals: ' + (error.message || 'Unknown error'));
     }
     setSavingGoals(false);
+  }
+
+  function addMonthlyGoal() {
+    if (!newGoalText.trim()) return;
+    const newGoal = {
+      id: `goal-${Date.now()}`,
+      text: newGoalText.trim(),
+      completed: false
+    };
+    const updatedGoals = [...monthlyGoals, newGoal];
+    setMonthlyGoals(updatedGoals);
+    setNewGoalText('');
+    saveGoalsWithGoals(updatedGoals);
+  }
+
+  async function toggleMonthlyGoal(goalId: string) {
+    const goal = monthlyGoals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    const newCompleted = !goal.completed;
+    
+    // Update the state and get the new goals array
+    const updatedGoals = monthlyGoals.map(goal => 
+      goal.id === goalId ? { ...goal, completed: newCompleted } : goal
+    );
+    
+    setMonthlyGoals(updatedGoals);
+    
+    // Create win when goal is completed, delete when unchecked
+    if (newCompleted) {
+      await createWinForGoal(goal.text, 'monthly');
+    } else {
+      await deleteWinForGoal(goal.text, 'monthly');
+    }
+    
+    await saveGoalsWithGoals(updatedGoals);
+  }
+
+  async function createWinForGoal(goalText: string, category: 'monthly' | 'weekly' | 'goal') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('wins')
+      .insert({
+        user_id: user.id,
+        circle_id: null,
+        title: goalText,
+        description: `Completed ${category} goal`,
+        goal_id: null,
+        milestone_id: null
+      });
+
+    if (error) {
+      console.error('Error creating win:', error);
+      // Don't show alert for win creation errors to avoid interrupting user flow
+    }
+  }
+
+  async function deleteWinForGoal(goalText: string, category: 'monthly' | 'weekly' | 'goal') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Delete win associated with this goal
+    const { error } = await supabase
+      .from('wins')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('title', goalText)
+      .like('description', `%${category} goal%`);
+
+    if (error) {
+      console.error('Error deleting win for goal:', error);
+      // Don't show alert for win deletion errors to avoid interrupting user flow
+    }
+  }
+
+  function deleteMonthlyGoal(goalId: string) {
+    const updatedGoals = monthlyGoals.filter(goal => goal.id !== goalId);
+    setMonthlyGoals(updatedGoals);
+    saveGoalsWithGoals(updatedGoals);
   }
 
   async function saveReview() {
@@ -369,15 +482,109 @@ export default function PersonalMonthPage() {
       <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div style={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px' }}>
           <h3 style={{ marginTop: 0, color: '#000' }}>This Month's Goals</h3>
-          <p style={{ color: '#666', marginTop: 0 }}>Write your top goals for this month.</p>
-          <textarea
-            placeholder="e.g., Finish feature X, run 50 miles, read 2 books"
-            style={{ width: '100%', minHeight: '120px', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', color: '#000' }}
-            value={goalsText}
-            onChange={(e) => setGoalsText(e.target.value)}
-            onBlur={saveGoals}
-          />
-          <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>{savingGoals ? 'Saving…' : ' '}</div>
+          <p style={{ color: '#666', marginTop: 0 }}>Set and track your monthly goals.</p>
+          
+          {/* Add new goal */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <input
+              type="text"
+              value={newGoalText}
+              onChange={(e) => setNewGoalText(e.target.value)}
+              onKeyPress={(e) => { if (e.key === 'Enter') addMonthlyGoal(); }}
+              placeholder="Add a monthly goal..."
+              style={{ 
+                flex: 1, 
+                padding: '8px 12px', 
+                border: '1px solid #ccc', 
+                borderRadius: '4px', 
+                color: '#000' 
+              }}
+            />
+            <button
+              onClick={addMonthlyGoal}
+              style={{
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Goals list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {monthlyGoals.length === 0 ? (
+              <div style={{ 
+                color: '#666', 
+                textAlign: 'center', 
+                padding: '20px',
+                fontStyle: 'italic'
+              }}>
+                No goals set for this month yet.
+              </div>
+            ) : (
+              monthlyGoals.map((goal) => (
+                <div
+                  key={goal.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 12px',
+                    backgroundColor: goal.completed ? '#f8f9fa' : '#fff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={goal.completed}
+                    onChange={() => toggleMonthlyGoal(goal.id)}
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      cursor: 'pointer',
+                      accentColor: '#28a745'
+                    }}
+                  />
+                  <span
+                    style={{
+                      flex: 1,
+                      color: goal.completed ? '#666' : '#000',
+                      textDecoration: goal.completed ? 'line-through' : 'none',
+                      fontSize: '0.95rem'
+                    }}
+                  >
+                    {goal.text}
+                  </span>
+                  <button
+                    onClick={() => deleteMonthlyGoal(goal.id)}
+                    style={{
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 8px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem'
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+          
+          <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>
+            {savingGoals ? 'Saving…' : ` ${monthlyGoals.filter(g => g.completed).length}/${monthlyGoals.length} completed`}
+          </div>
         </div>
         <div style={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px' }}>
           <h3 style={{ marginTop: 0, color: '#000' }}>Last Month Review</h3>

@@ -33,6 +33,11 @@ export default function PersonalDayPage() {
   const [scheduleText, setScheduleText] = useState('');
   const [notesText, setNotesText] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  
+  // Time blocks state (30-min slots from 6am to 9pm)
+  const [timeBlocks, setTimeBlocks] = useState<string[]>([]);
+  const [selectedRange, setSelectedRange] = useState<{start: number, end: number} | null>(null);
+  const [rangeActivity, setRangeActivity] = useState('');
 
   // To-dos (tasks type='task' on this date)
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -50,6 +55,72 @@ export default function PersonalDayPage() {
       setLoading(false);
     })();
   }, [selectedDate]);
+
+  // Generate 30-minute time blocks from 6am to 9pm (30 blocks total)
+  function generateTimeBlocks() {
+    const blocks = [];
+    for (let hour = 6; hour < 21; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const displayTime = hour > 12 ? `${hour - 12}:${minute.toString().padStart(2, '0')} PM` : 
+                           hour === 12 ? `12:${minute.toString().padStart(2, '0')} PM` :
+                           hour === 0 ? `12:${minute.toString().padStart(2, '0')} AM` :
+                           `${hour}:${minute.toString().padStart(2, '0')} AM`;
+        blocks.push({
+          time: displayTime,
+          activity: timeBlocks[blocks.length] || ''
+        });
+      }
+    }
+    return blocks;
+  }
+
+  function updateTimeBlock(index: number, activity: string) {
+    const newBlocks = [...timeBlocks];
+    newBlocks[index] = activity;
+    setTimeBlocks(newBlocks);
+    // Update scheduleText to save to database
+    setScheduleText(newBlocks.join('\n'));
+  }
+
+  function handleBlockClick(index: number) {
+    if (!selectedRange) {
+      // Start new selection
+      setSelectedRange({ start: index, end: index });
+    } else if (selectedRange.start === index) {
+      // Clicking same block - clear selection
+      setSelectedRange(null);
+    } else {
+      // Extend selection
+      setSelectedRange({
+        start: Math.min(selectedRange.start, index),
+        end: Math.max(selectedRange.end, index)
+      });
+    }
+  }
+
+  async function applyRangeActivity() {
+    if (!selectedRange || !rangeActivity.trim()) return;
+    
+    const newBlocks = [...timeBlocks];
+    for (let i = selectedRange.start; i <= selectedRange.end; i++) {
+      newBlocks[i] = rangeActivity;
+    }
+    const newScheduleText = newBlocks.join('\n');
+    
+    setTimeBlocks(newBlocks);
+    setScheduleText(newScheduleText);
+    setSelectedRange(null);
+    setRangeActivity('');
+    
+    // Save directly with the new schedule text
+    await saveScheduleDirectly(newScheduleText);
+  }
+
+  function clearRange() {
+    setSelectedRange(null);
+    setRangeActivity('');
+  }
 
   function changeDay(direction: 'prev' | 'next') {
     const [y, m, d] = selectedDate.split('-').map(Number);
@@ -136,8 +207,58 @@ export default function PersonalDayPage() {
       setNotesText('');
       return;
     }
-    setScheduleText((data && data[0]?.schedule) || '');
+    const scheduleData = (data && data[0]?.schedule) || '';
+    setScheduleText(scheduleData);
     setNotesText((data && data[0]?.notes) || '');
+    
+    // Parse schedule text into time blocks (split by newlines)
+    const blocks = scheduleData.split('\n').slice(0, 30); // Limit to 30 blocks
+    setTimeBlocks(blocks);
+  }
+
+  async function saveScheduleDirectly(scheduleText: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setSavingNotes(true);
+    
+    // Read existing to preserve notes
+    const { data: existing } = await supabase
+      .from('day_notes')
+      .select('notes')
+      .eq('user_id', user.id)
+      .is('circle_id', null)
+      .eq('date', selectedDate)
+      .limit(1);
+    
+    const currentNotes = (existing && existing[0]?.notes) || '';
+    
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from('day_notes')
+        .update({ schedule: scheduleText, notes: currentNotes })
+        .eq('user_id', user.id)
+        .is('circle_id', null)
+        .eq('date', selectedDate);
+      if (error) {
+        console.error('Error saving schedule:', error);
+        alert('Error saving schedule: ' + (error.message || 'Unknown error'));
+      }
+    } else {
+      const { error } = await supabase
+        .from('day_notes')
+        .insert({
+          user_id: user.id,
+          circle_id: null,
+          date: selectedDate,
+          schedule: scheduleText,
+          notes: currentNotes
+        });
+      if (error) {
+        console.error('Error creating day notes:', error);
+        alert('Error creating notes: ' + (error.message || 'Unknown error'));
+      }
+    }
+    setSavingNotes(false);
   }
 
   async function saveDayNotes(which: 'schedule' | 'notes') {
@@ -237,20 +358,7 @@ export default function PersonalDayPage() {
       alert('Error updating todo: ' + (error.message || 'Unknown error'));
       return;
     }
-    // Optionally create a win when marking done
-    if (next === 'done') {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('wins').insert({
-          user_id: user.id,
-          circle_id: null,
-          title: t.title,
-          description: t.description || null,
-          task_id: t.id,
-          goal_id: t.linked_goal_id
-        });
-      }
-    }
+    // Daily tasks don't create wins - only weekly, monthly, and big goals do
     loadTodos();
   }
 
@@ -292,14 +400,119 @@ export default function PersonalDayPage() {
       {/* Schedule & Notes */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
         <div style={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px' }}>
-          <h3 style={{ marginTop: 0, color: '#000' }}>Schedule</h3>
-          <textarea
-            value={scheduleText}
-            onChange={(e) => setScheduleText(e.target.value)}
-            onBlur={() => saveDayNotes('schedule')}
-            placeholder="e.g., 7:00-8:00 Gym, 9:00-11:00 Deep work, ..."
-            style={{ width: '100%', minHeight: '140px', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', color: '#000' }}
-          />
+          <h3 style={{ marginTop: 0, color: '#000' }}>Daily Schedule (30-min blocks)</h3>
+          
+          {/* Range Selection Controls */}
+          {selectedRange && (
+            <div style={{ 
+              backgroundColor: '#e3f2fd', 
+              border: '1px solid #2196f3', 
+              borderRadius: '4px', 
+              padding: '12px', 
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <div style={{ fontSize: '0.9rem', color: '#1976d2', fontWeight: 'bold' }}>
+                Selected: {generateTimeBlocks()[selectedRange.start].time} - {generateTimeBlocks()[selectedRange.end].time}
+              </div>
+              <input
+                type="text"
+                value={rangeActivity}
+                onChange={(e) => setRangeActivity(e.target.value)}
+                placeholder="Enter activity for selected range"
+                style={{ 
+                  flex: 1, 
+                  padding: '6px 8px', 
+                  border: '1px solid #2196f3', 
+                  borderRadius: '4px', 
+                  fontSize: '0.9rem',
+                  color: '#000'
+                }}
+              />
+              <button
+                onClick={applyRangeActivity}
+                style={{
+                  backgroundColor: '#2196f3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Apply
+              </button>
+              <button
+                onClick={clearRange}
+                style={{
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
+            {generateTimeBlocks().map((block, index) => {
+              const isSelected = selectedRange && index >= selectedRange.start && index <= selectedRange.end;
+              return (
+                <div 
+                  key={index} 
+                  onClick={() => handleBlockClick(index)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '8px 12px', 
+                    borderBottom: '1px solid #f0f0f0',
+                    backgroundColor: isSelected ? '#e3f2fd' : (index % 2 === 0 ? '#fafafa' : '#fff'),
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                >
+                  <div style={{ 
+                    width: '80px', 
+                    fontSize: '0.9rem', 
+                    fontWeight: 'bold', 
+                    color: isSelected ? '#1976d2' : '#666',
+                    flexShrink: 0
+                  }}>
+                    {block.time}
+                  </div>
+                  <input
+                    type="text"
+                    value={block.activity}
+                    onChange={(e) => updateTimeBlock(index, e.target.value)}
+                    onBlur={() => saveDayNotes('schedule')}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="What are you doing?"
+                    style={{ 
+                      flex: 1, 
+                      padding: '6px 8px', 
+                      border: isSelected ? '1px solid #2196f3' : '1px solid #ddd', 
+                      borderRadius: '4px', 
+                      fontSize: '0.9rem',
+                      color: '#000',
+                      backgroundColor: isSelected ? '#fff' : 'transparent'
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          
+          <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#666' }}>
+            💡 Tip: Click blocks to select a range, then enter an activity to apply it to all selected blocks
+          </div>
         </div>
         <div style={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px' }}>
           <h3 style={{ marginTop: 0, color: '#000' }}>Notes</h3>

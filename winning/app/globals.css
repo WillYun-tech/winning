@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Planner-inspired color palette */
+  --background: #f8f6f3; /* Warm off-white */
+  --foreground: #2c2c2c; /* Soft dark gray */
+  --paper: #ffffff; /* Clean white for cards */
+  --border: #d4d1c9; /* Muted border color */
+  --accent: #6b5b95; /* Muted purple for primary actions */
+  --accent-light: #8b7ba8; /* Lighter purple for hover states */
+  --success: #5a7c65; /* Muted green for completed items */
+  --warning: #b8860b; /* Muted gold for warnings */
+  --danger: #8b4513; /* Muted brown for delete actions */
+  --text-muted: #6b6b6b; /* Muted text color */
+  --shadow: rgba(0, 0, 0, 0.08); /* Subtle shadows */
 }
 
 @theme inline {
@@ -12,15 +22,82 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  line-height: 1.6;
+}
+
+/* Planner-specific utility classes */
+.planner-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.planner-button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.planner-button:hover {
+  background: var(--accent-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+.planner-button-secondary {
+  background: var(--text-muted);
+  color: white;
+}
+
+.planner-button-success {
+  background: var(--success);
+}
+
+.planner-button-danger {
+  background: var(--danger);
+}
+
+.planner-input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--paper);
+  color: var(--foreground);
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.planner-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107, 91, 149, 0.1);
+}
+
+.planner-textarea {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--paper);
+  color: var(--foreground);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.planner-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(107, 91, 149, 0.1);
 }

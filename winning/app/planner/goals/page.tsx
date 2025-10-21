@@ -202,7 +202,86 @@ export default function PersonalGoalsPage() {
       return;
     }
 
+    // Create win when milestone is completed, delete when unchecked
+    if (completed) {
+      await createWinForMilestone(milestoneId);
+    } else {
+      await deleteWinForMilestone(milestoneId);
+    }
+
     loadGoals();
+  }
+
+  async function createWinForMilestone(milestoneId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Get milestone details
+    const { data: milestone, error: milestoneError } = await supabase
+      .from('milestones')
+      .select(`
+        title, 
+        goal_id, 
+        goals(title)
+      `)
+      .eq('id', milestoneId)
+      .single();
+
+    if (milestoneError || !milestone) {
+      console.error('Error fetching milestone:', milestoneError);
+      return;
+    }
+
+    const { data: insertData, error } = await supabase
+      .from('wins')
+      .insert({
+        user_id: user.id,
+        circle_id: null,
+        title: milestone.title,
+        description: `Completed milestone for goal: ${(milestone.goals as any)?.title || 'Unknown Goal'}`,
+        goal_id: milestone.goal_id
+      })
+      .select();
+
+    if (error) {
+      console.error('Error creating win:', error);
+      console.error('Win creation failed for milestone:', milestoneId, 'Error details:', error.message);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      // Don't throw the error, just log it so milestone completion still works
+      return;
+    }
+    
+    console.log('Win created successfully for milestone:', milestone.title);
+  }
+
+  async function deleteWinForMilestone(milestoneId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Get the milestone's goal_id first
+    const { data: milestone, error: milestoneError } = await supabase
+      .from('milestones')
+      .select('goal_id, title')
+      .eq('id', milestoneId)
+      .single();
+
+    if (milestoneError || !milestone) {
+      console.error('Error fetching milestone for deletion:', milestoneError);
+      return;
+    }
+
+    // Delete win associated with this milestone using the correct goal_id
+    const { error } = await supabase
+      .from('wins')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('goal_id', milestone.goal_id)
+      .like('description', '%milestone%');
+
+    if (error) {
+      console.error('Error deleting win for milestone:', error);
+      // Don't show alert for win deletion errors to avoid interrupting user flow
+    }
   }
 
   function startEditGoal(goal: Goal) {
@@ -224,22 +303,26 @@ export default function PersonalGoalsPage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom: '30px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '2rem', margin: 0, color: '#000' }}>My Goals</h2>
+      <div className="planner-card" style={{ marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ 
+            fontSize: '2rem', 
+            margin: 0, 
+            color: 'var(--accent)',
+            fontFamily: 'Georgia, serif',
+            fontWeight: 'bold'
+          }}>
+            🎯 My Goals
+          </h2>
           <button
             onClick={() => setShowGoalForm(true)}
+            className="planner-button"
             style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              padding: '10px 20px',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
+              fontSize: '1rem',
+              padding: '12px 24px'
             }}
           >
-            + New Goal
+            ✨ New Goal
           </button>
         </div>
       </div>
@@ -393,63 +476,77 @@ export default function PersonalGoalsPage() {
       )}
 
       {/* Goals List */}
-      <div style={{ display: 'grid', gap: '20px' }}>
+      <div style={{ display: 'grid', gap: '24px' }}>
         {goals.map((goal) => (
-          <div key={goal.id} style={{
-            border: '1px solid #e0e0e0',
-            borderRadius: '8px',
-            padding: '20px',
-            backgroundColor: '#f9f9f9'
+          <div key={goal.id} className="planner-card" style={{
+            backgroundColor: 'var(--paper)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '24px',
+            boxShadow: '0 4px 8px var(--shadow)',
+            transition: 'all 0.2s ease'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
               <div>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '1.5rem', color: '#000', fontWeight: 'bold' }}>{goal.title}</h3>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <h3 style={{ 
+                  margin: '0 0 8px 0', 
+                  fontSize: '1.6rem', 
+                  color: 'var(--foreground)', 
+                  fontWeight: 'bold',
+                  fontFamily: 'Georgia, serif'
+                }}>
+                  {goal.title}
+                </h3>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                   <span style={{
-                    backgroundColor: goal.horizon === 'long-term' ? '#dc3545' : goal.horizon === 'medium-term' ? '#ffc107' : '#28a745',
-                    color: goal.horizon === 'medium-term' ? 'black' : 'white',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
+                    backgroundColor: goal.horizon === 'long-term' ? 'var(--accent)' : goal.horizon === 'medium-term' ? 'var(--warning)' : 'var(--success)',
+                    color: 'white',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
                     fontSize: '0.8rem',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
                   }}>
-                    {goal.horizon.replace('-', ' ').toUpperCase()}
+                    {goal.horizon.replace('-', ' ')}
                   </span>
                   {goal.deadline && (
-                    <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                      Due: {new Date(goal.deadline).toLocaleDateString()}
+                    <span style={{ 
+                      color: 'var(--text-muted)', 
+                      fontSize: '0.9rem',
+                      fontStyle: 'italic',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      📅 Due: {new Date(goal.deadline).toLocaleDateString()}
                     </span>
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '5px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   onClick={() => startEditGoal(goal)}
+                  className="planner-button"
                   style={{
-                    backgroundColor: '#17a2b8',
-                    color: 'white',
-                    padding: '5px 10px',
-                    border: 'none',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem'
+                    backgroundColor: 'var(--accent)',
+                    padding: '8px 16px',
+                    fontSize: '0.85rem',
+                    fontWeight: '500'
                   }}
                 >
-                  Edit
+                  ✏️ Edit
                 </button>
                 <button
                   onClick={() => deleteGoal(goal.id)}
+                  className="planner-button-danger"
                   style={{
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    padding: '5px 10px',
-                    border: 'none',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem'
+                    padding: '8px 16px',
+                    fontSize: '0.85rem',
+                    fontWeight: '500'
                   }}
                 >
-                  Delete
+                  🗑️ Delete
                 </button>
               </div>
             </div>
