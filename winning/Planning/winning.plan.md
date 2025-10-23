@@ -90,15 +90,15 @@
 
 ### To-dos
 
-- [ ] Implement auth and Circle creation/join flows 
+- [x] Implement auth and Circle creation/join flows 
 (Completed Oct 17, 11:00am)
-- [ ] Set up database schema for goals, habits, routines, tasks, wins, comments
-- [ ] Build Circle dashboard with member switcher and combined toggle
-- [ ] Create Long-term Goal page with milestones and strategy notes
-- [ ] Build 10-habit monthly tracker with streaks and %
-- [ ] Build morning/evening routine editors with steps
-- [ ] Implement month calendar with events/tasks and member filters
-- [ ] Create weekly review and upcoming plan with top outcomes
-- [ ] Create daily page: priority, schedule, to-dos, notes
-- [ ] Auto-create wins on task completion; feed with comments/reactions
+- [x] Set up database schema for goals, habits, routines, tasks, wins, comments
+- [x] Build Circle dashboard with member switcher and combined toggle
+- [x] Create Long-term Goal page with milestones and strategy notes
+- [x] Build 10-habit monthly tracker with streaks and %
+- [x] Build morning/evening routine editors with steps
+- [x] Implement month calendar with events/tasks and member filters
+- [x] Create weekly review and upcoming plan with top outcomes
+- [x] Create daily page: priority, schedule, to-dos, notes
+- [x] Auto-create wins on task completion; feed with comments/reactions
 - [ ] Aggregate month/week/day across selected members

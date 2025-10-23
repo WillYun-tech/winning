@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
   const supabase = createBrowserSupabaseClient();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +19,10 @@ export default function LoginPage() {
     console.log('before signIn, pkce?', !!localStorage.getItem('sb-pkce-code-verifier'));
     const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback`, shouldCreateUser: true }
+        options: { 
+          emailRedirectTo: `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`, 
+          shouldCreateUser: true 
+        }
     });
     console.log('after signIn, pkce?', !!localStorage.getItem('sb-pkce-code-verifier'), error?.message);
     if (error) setError(error.message);

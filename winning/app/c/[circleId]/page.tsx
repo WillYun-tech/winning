@@ -4,6 +4,8 @@ import { useParams } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import CircleGoalsView from '@/components/CircleGoalsView';
+import CircleMembersView from '@/components/CircleMembersView';
 
 export default function CirclePage() {
   const params = useParams();
@@ -14,6 +16,7 @@ export default function CirclePage() {
   const [loading, setLoading] = useState(true);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [creatingInvite, setCreatingInvite] = useState(false);
+  const [activeTab, setActiveTab] = useState('goals');
 
   useEffect(() => {
     (async () => {
@@ -130,70 +133,153 @@ export default function CirclePage() {
       }}>
         <nav style={{ display: 'flex', gap: '0' }}>
           {[
-            { name: 'Goals', href: `/c/${circleId}?tab=goals`, icon: '🎯' },
-            { name: 'Habits', href: `/c/${circleId}?tab=habits`, icon: '📈' },
-            { name: 'Routines', href: `/c/${circleId}?tab=routines`, icon: '🌅' },
-            { name: 'Calendar', href: `/c/${circleId}?tab=month`, icon: '📅' },
-            { name: 'Weekly', href: `/c/${circleId}?tab=week`, icon: '📋' },
-            { name: 'Daily', href: `/c/${circleId}?tab=day`, icon: '📝' },
-            { name: 'Wins', href: `/c/${circleId}?tab=wins`, icon: '🏆' },
+            { name: 'Members', tab: 'members', icon: '👥' },
+            { name: 'Goals', tab: 'goals', icon: '🎯' },
+            { name: 'Habits', tab: 'habits', icon: '📈' },
+            { name: 'Routines', tab: 'routines', icon: '🌅' },
+            { name: 'Calendar', tab: 'month', icon: '📅' },
+            { name: 'Weekly', tab: 'week', icon: '📋' },
+            { name: 'Daily', tab: 'day', icon: '📝' },
+            { name: 'Wins', tab: 'wins', icon: '🏆' },
           ].map((tab) => (
-            <a
-              key={tab.href}
-              href={tab.href}
+            <button
+              key={tab.tab}
+              onClick={() => setActiveTab(tab.tab)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 padding: '15px 20px',
                 textDecoration: 'none',
-                color: '#666',
-                borderBottom: '3px solid transparent',
-                backgroundColor: 'transparent',
-                fontWeight: 'normal',
-                transition: 'all 0.2s ease'
+                color: activeTab === tab.tab ? 'var(--accent)' : '#666',
+                borderBottom: activeTab === tab.tab ? '3px solid var(--accent)' : '3px solid transparent',
+                backgroundColor: activeTab === tab.tab ? 'rgba(107, 91, 149, 0.1)' : 'transparent',
+                fontWeight: activeTab === tab.tab ? 'bold' : 'normal',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                outline: 'none'
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>{tab.icon}</span>
               <span>{tab.name}</span>
-            </a>
+            </button>
           ))}
         </nav>
       </div>
 
-      {/* Content Area */}
-      <div style={{ 
-        backgroundColor: 'white',
-        border: '1px solid #e0e0e0',
-        borderRadius: '8px',
-        padding: '30px',
-        marginBottom: '30px'
-      }}>
-        <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Goals</h2>
-        <p style={{ color: '#666', marginBottom: '20px' }}>
-          View all circle members' goals together. Each member manages their own goals in their personal planner.
-        </p>
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p style={{ color: '#666', fontSize: '1.1rem' }}>
-            Goals view coming soon - this will show all circle members' goals combined
-          </p>
-          <a 
-            href="/planner/goals"
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#007bff',
-              color: 'white',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              textDecoration: 'none',
-              fontWeight: 'bold',
-              marginTop: '10px'
-            }}
-          >
-            Go to My Personal Goals
-          </a>
+        {/* Content Area */}
+        <div style={{ 
+          backgroundColor: 'white',
+          border: '1px solid #e0e0e0',
+          borderRadius: '8px',
+          padding: '30px',
+          marginBottom: '30px'
+        }}>
+          {activeTab === 'members' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Members</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all members in this circle and their roles.
+              </p>
+              <CircleMembersView circleId={circleId} />
+            </>
+          )}
+          
+          {activeTab === 'goals' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Goals</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' goals together. Each member manages their own goals in their personal planner.
+              </p>
+              <CircleGoalsView circleId={circleId} />
+            </>
+          )}
+          
+          {activeTab === 'habits' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Habits</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' habit progress together.
+              </p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#666', fontSize: '1.1rem' }}>
+                  Habits view coming soon
+                </p>
+              </div>
+            </>
+          )}
+          
+          {activeTab === 'routines' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Routines</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' routines together.
+              </p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#666', fontSize: '1.1rem' }}>
+                  Routines view coming soon
+                </p>
+              </div>
+            </>
+          )}
+          
+          {activeTab === 'month' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Calendar</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' events and schedules together.
+              </p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#666', fontSize: '1.1rem' }}>
+                  Calendar view coming soon
+                </p>
+              </div>
+            </>
+          )}
+          
+          {activeTab === 'week' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Weekly</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' weekly plans and reviews together.
+              </p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#666', fontSize: '1.1rem' }}>
+                  Weekly view coming soon
+                </p>
+              </div>
+            </>
+          )}
+          
+          {activeTab === 'day' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Daily</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' daily plans together.
+              </p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#666', fontSize: '1.1rem' }}>
+                  Daily view coming soon
+                </p>
+              </div>
+            </>
+          )}
+          
+          {activeTab === 'wins' && (
+            <>
+              <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Wins</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>
+                View all circle members' wins and achievements together.
+              </p>
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#666', fontSize: '1.1rem' }}>
+                  Wins view coming soon
+                </p>
+              </div>
+            </>
+          )}
         </div>
-      </div>
 
       {/* Old Navigation Grid - Remove this section */}
       <div style={{ display: 'none' }}>
