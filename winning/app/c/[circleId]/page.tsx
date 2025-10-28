@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CircleGoalsView from '@/components/CircleGoalsView';
 import CircleMembersView from '@/components/CircleMembersView';
+import CircleHabitsView from '@/components/CircleHabitsView';
 
 export default function CirclePage() {
   const params = useParams();
@@ -200,13 +201,9 @@ export default function CirclePage() {
             <>
               <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Habits</h2>
               <p style={{ color: '#666', marginBottom: '20px' }}>
-                View all circle members' habit progress together.
+                View all circle members' habit progress together. Each member manages their own habits in their personal planner.
               </p>
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                  Habits view coming soon
-                </p>
-              </div>
+              <CircleHabitsView circleId={circleId} />
             </>
           )}
           
