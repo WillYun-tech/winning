@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import CircleGoalsView from '@/components/CircleGoalsView';
 import CircleMembersView from '@/components/CircleMembersView';
 import CircleHabitsView from '@/components/CircleHabitsView';
+import CircleRoutinesView from '@/components/CircleRoutinesView';
 
 export default function CirclePage() {
   const params = useParams();
@@ -213,11 +214,7 @@ export default function CirclePage() {
               <p style={{ color: '#666', marginBottom: '20px' }}>
                 View all circle members' routines together.
               </p>
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                  Routines view coming soon
-                </p>
-              </div>
+              <CircleRoutinesView circleId={circleId} />
             </>
           )}
           

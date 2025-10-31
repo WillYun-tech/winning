@@ -264,7 +264,10 @@ export default function PersonalHabitsPage() {
   if (loading) return <div style={{ padding: '20px' }}>Loading your habits...</div>;
 
   const daysInMonth = getDaysInMonth();
-  const monthName = new Date(currentMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  // Build month name using numeric Date constructor to avoid UTC parsing issues
+  const [yearNum, monthNum] = currentMonth.split('-').map(Number);
+  const monthMidDate = new Date(yearNum, monthNum - 1, 15);
+  const monthName = monthMidDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
     <div>
