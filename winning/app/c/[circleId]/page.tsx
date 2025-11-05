@@ -8,6 +8,8 @@ import CircleGoalsView from '@/components/CircleGoalsView';
 import CircleMembersView from '@/components/CircleMembersView';
 import CircleHabitsView from '@/components/CircleHabitsView';
 import CircleRoutinesView from '@/components/CircleRoutinesView';
+import CircleCalendarView from '@/components/CircleCalendarView';
+import CircleWeeklyView from '@/components/CircleWeeklyView';
 
 export default function CirclePage() {
   const params = useParams();
@@ -224,11 +226,7 @@ export default function CirclePage() {
               <p style={{ color: '#666', marginBottom: '20px' }}>
                 View all circle members' events and schedules together.
               </p>
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                  Calendar view coming soon
-                </p>
-              </div>
+              <CircleCalendarView circleId={circleId} />
             </>
           )}
           
@@ -238,11 +236,7 @@ export default function CirclePage() {
               <p style={{ color: '#666', marginBottom: '20px' }}>
                 View all circle members' weekly plans and reviews together.
               </p>
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                  Weekly view coming soon
-                </p>
-              </div>
+              <CircleWeeklyView circleId={circleId} />
             </>
           )}
           
