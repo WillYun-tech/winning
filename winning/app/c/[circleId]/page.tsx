@@ -10,6 +10,8 @@ import CircleHabitsView from '@/components/CircleHabitsView';
 import CircleRoutinesView from '@/components/CircleRoutinesView';
 import CircleCalendarView from '@/components/CircleCalendarView';
 import CircleWeeklyView from '@/components/CircleWeeklyView';
+import CircleDailyView from '@/components/CircleDailyView';
+import CircleWinsView from '@/components/CircleWinsView';
 
 export default function CirclePage() {
   const params = useParams();
@@ -244,13 +246,9 @@ export default function CirclePage() {
             <>
               <h2 style={{ marginTop: 0, marginBottom: '20px', color: '#000' }}>Circle Daily</h2>
               <p style={{ color: '#666', marginBottom: '20px' }}>
-                View all circle members' daily plans together.
+                View all circle members' daily priorities, schedules, and to-dos together.
               </p>
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                  Daily view coming soon
-                </p>
-              </div>
+              <CircleDailyView circleId={circleId} />
             </>
           )}
           
@@ -260,11 +258,7 @@ export default function CirclePage() {
               <p style={{ color: '#666', marginBottom: '20px' }}>
                 View all circle members' wins and achievements together.
               </p>
-              <div style={{ textAlign: 'center', padding: '40px' }}>
-                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                  Wins view coming soon
-                </p>
-              </div>
+              <CircleWinsView circleId={circleId} />
             </>
           )}
         </div>

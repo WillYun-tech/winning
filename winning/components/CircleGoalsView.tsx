@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 type CircleMember = {
@@ -11,6 +11,7 @@ type CircleMember = {
 };
 
 type Goal = {
+  user_id: string;
   id: string;
   title: string;
   description: string;
@@ -37,6 +38,8 @@ type MemberGoals = {
   goals: Goal[];
 };
 
+type HorizonFilter = 'all' | 'long-term' | 'medium-term' | 'short-term';
+
 export default function CircleGoalsView({ circleId }: { circleId: string }) {
   const supabase = createBrowserSupabaseClient();
   const [memberGoals, setMemberGoals] = useState<MemberGoals[]>([]);
@@ -44,42 +47,26 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
+  const [horizonFilter, setHorizonFilter] = useState<HorizonFilter>('all');
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        setError('Please log in to view circle goals');
+        return;
       }
+      setCurrentUserId(user.id);
+
+      await loadCircleGoals(user.id);
     })();
-    loadCircleGoals();
-  }, [circleId]);
+  }, [circleId, supabase]);
 
-  // Helper function to get display name from email (keeping for potential future use)
-  function getDisplayName(email: string): string {
-    if (!email) return 'Unknown User';
-    const name = email.split('@')[0];
-    // Convert willandmark6 to "Will" or similar
-    const cleanName = name.replace(/[0-9]/g, '').toLowerCase();
-    return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-  }
-
-  async function loadCircleGoals() {
+  async function loadCircleGoals(viewerId: string) {
     try {
       setLoading(true);
       setError(null);
 
-      // Check if user is authenticated
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        console.error('User not authenticated:', authError);
-        setError('Please log in to view circle goals');
-        return;
-      }
-      console.log('User authenticated:', user.email);
-
-      // Get circle members
-      console.log('Loading circle members for circleId:', circleId);
       const { data: members, error: membersError } = await supabase
         .from('circle_members')
         .select(`
@@ -90,11 +77,7 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
         `)
         .eq('circle_id', circleId);
 
-      console.log('Circle members query result:', { members, membersError });
-
       if (membersError) {
-        console.error('Error loading circle members:', membersError);
-        console.error('Full error object:', JSON.stringify(membersError, null, 2));
         setError(`Failed to load circle members: ${membersError.message || 'Unknown error'}`);
         return;
       }
@@ -105,26 +88,17 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
         return;
       }
 
-      // Simple fallback: generate display names from user IDs for now
-      const profileMap: Record<string, string> = {};
-      members.forEach((member, index) => {
-        if (member.user_id === currentUserId) {
-          profileMap[member.user_id] = 'You';
-        } else {
-          // Generate a simple name from user ID
-          const shortId = member.user_id.slice(0, 8);
-          profileMap[member.user_id] = `User ${shortId}`;
-        }
-      });
-      
-      setUserProfiles(profileMap);
+      const memberIds = members.map(m => m.user_id);
 
-      const memberGoalsData: MemberGoals[] = [];
-      for (const member of members) {
-        // Fetch personal goals for each member
-        const { data: goals, error: goalsError } = await supabase
+      const [profilesResult, goalsResult] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('user_id, display_name')
+          .in('user_id', memberIds),
+        supabase
           .from('goals')
           .select(`
+            user_id,
             id,
             title,
             description,
@@ -136,40 +110,141 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
             created_at,
             milestones (*)
           `)
-          .eq('user_id', member.user_id)
-          .is('circle_id', null) // Personal goals only
-          .order('created_at', { ascending: false });
+          .in('user_id', memberIds)
+          .is('circle_id', null)
+          .order('created_at', { ascending: false })
+      ]);
 
-        if (goalsError) {
-          console.error(`Error loading goals for member ${member.user_id}:`, goalsError);
-          continue; // Skip this member but continue with others
-        }
+      const profileMap: Record<string, string> = {};
 
-        memberGoalsData.push({
-          member,
-          goals: goals || []
+      if (profilesResult.data) {
+        profilesResult.data.forEach((profile) => {
+          if (profile.user_id === viewerId) {
+            profileMap[profile.user_id] = 'You';
+          } else if (profile.display_name && profile.display_name.trim().length > 0) {
+            profileMap[profile.user_id] = profile.display_name.trim();
+          }
         });
       }
+
+      // Fallback for any members without profile entries
+      members.forEach((member) => {
+        if (!profileMap[member.user_id]) {
+          if (member.user_id === viewerId) {
+            profileMap[member.user_id] = 'You';
+          } else {
+            const shortId = member.user_id.slice(0, 8);
+            profileMap[member.user_id] = `Member ${shortId}`;
+          }
+        }
+      });
+
+      setUserProfiles(profileMap);
+
+      if (goalsResult.error) {
+        setError(`Failed to load goals: ${goalsResult.error.message}`);
+        setMemberGoals([]);
+        return;
+      }
+
+      const goalsByUser = new Map<string, Goal[]>();
+      (goalsResult.data || []).forEach((goal) => {
+        const list = goalsByUser.get(goal.user_id) || [];
+        list.push(goal);
+        goalsByUser.set(goal.user_id, list);
+      });
+
+      const memberGoalsData: MemberGoals[] = members.map(member => ({
+        member,
+        goals: goalsByUser.get(member.user_id) || []
+      }));
+
       setMemberGoals(memberGoalsData);
     } catch (err: any) {
-      console.error('Unexpected error in loadCircleGoals:', err);
       setError(`An unexpected error occurred: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
   }
 
+  const filteredMemberGoals = useMemo(() => {
+    if (horizonFilter === 'all') return memberGoals;
+    return memberGoals.map(mg => ({
+      ...mg,
+      goals: mg.goals.filter(goal => goal.horizon === horizonFilter)
+    }));
+  }, [memberGoals, horizonFilter]);
+
+  const totalGoals = useMemo(() => memberGoals.reduce((sum, mg) => sum + mg.goals.length, 0), [memberGoals]);
+  const totalsByHorizon = useMemo(() => {
+    const result = { 'long-term': 0, 'medium-term': 0, 'short-term': 0 } as Record<'long-term' | 'medium-term' | 'short-term', number>;
+    memberGoals.forEach(mg => {
+      mg.goals.forEach(goal => result[goal.horizon] += 1);
+    });
+    return result;
+  }, [memberGoals]);
+
   if (loading) return <div style={{ padding: '20px' }}>Loading circle goals...</div>;
   if (error) return <div style={{ padding: '20px', color: 'var(--danger)' }}>Error: {error}</div>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-      {memberGoals.length === 0 ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div
+        style={{
+          backgroundColor: 'var(--paper)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: '1.4rem',
+              color: 'var(--foreground)',
+              fontFamily: 'Georgia, serif',
+              fontWeight: 'bold'
+            }}
+          >
+            Circle Goals Overview
+          </h3>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {(['all', 'long-term', 'medium-term', 'short-term'] as HorizonFilter[]).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setHorizonFilter(filter)}
+                className="planner-button"
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '0.9rem',
+                  backgroundColor: horizonFilter === filter ? 'var(--accent)' : 'var(--background)',
+                  color: horizonFilter === filter ? 'white' : 'var(--foreground)',
+                  border: '1px solid var(--border)'
+                }}
+              >
+                {filter === 'all' ? 'All Goals' : formatHorizon(filter)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+          <OverviewStat label="Total Goals" value={totalGoals} accent="var(--accent)" />
+          <OverviewStat label="Long-term" value={totalsByHorizon['long-term']} accent="#6f42c1" />
+          <OverviewStat label="Medium-term" value={totalsByHorizon['medium-term']} accent="#fd7e14" />
+          <OverviewStat label="Short-term" value={totalsByHorizon['short-term']} accent="#198754" />
+        </div>
+      </div>
+
+      {filteredMemberGoals.every(mg => mg.goals.length === 0) ? (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          No members in this circle have set personal goals yet.
+          No goals match the selected filter.
         </div>
       ) : (
-        memberGoals.map((data) => (
+        filteredMemberGoals.map((data) => (
           <div key={data.member.user_id} style={{ marginBottom: '40px' }}>
             {/* Member Header */}
             <div style={{ 
@@ -202,10 +277,7 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
                   fontFamily: 'Georgia, serif',
                   fontWeight: 'bold'
                 }}>
-                  {data.member.user_id === currentUserId 
-                    ? 'Your Goals' 
-                    : `${userProfiles[data.member.user_id] || 'Unknown User'}'s Goals`
-                  }
+                  {userProfiles[data.member.user_id] || 'Member Goals'}
                 </h3>
                 <p style={{ 
                   margin: 0, 
@@ -228,8 +300,12 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
                 borderRadius: '8px',
                 border: '1px solid #e0e0e0'
               }}>
-                <h3>No goals yet</h3>
-                <p>This member hasn't set any personal goals yet.</p>
+                <h3>No goals in this category</h3>
+                <p>
+                  {horizonFilter === 'all'
+                    ? 'This member has not set any goals yet.'
+                    : `No ${formatHorizon(horizonFilter)} goals to show.`}
+                </p>
               </div>
             ) : (
               <div style={{ display: 'grid', gap: '24px' }}>
@@ -359,6 +435,34 @@ export default function CircleGoalsView({ circleId }: { circleId: string }) {
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+function formatHorizon(h: HorizonFilter) {
+  if (h === 'long-term') return 'Long-term';
+  if (h === 'medium-term') return 'Medium-term';
+  if (h === 'short-term') return 'Short-term';
+  return 'All Goals';
+}
+
+function OverviewStat({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div
+      style={{
+        flex: '1 1 160px',
+        minWidth: '140px',
+        backgroundColor: 'white',
+        border: `1px solid ${accent}`,
+        borderRadius: '10px',
+        padding: '12px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px'
+      }}
+    >
+      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{label}</span>
+      <span style={{ fontSize: '1.6rem', fontWeight: 'bold', color: accent }}>{value}</span>
     </div>
   );
 }
